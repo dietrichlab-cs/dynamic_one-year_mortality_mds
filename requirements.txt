@@ -11,3 +11,4 @@ tsflex==0.4.1
 tsfresh==0.21.0
 xgboost==2.1.4
 shap==0.48.0
+snakemake==8.29.0

@@ -292,9 +292,7 @@ def plot_average_metrics_by_length(df, models, lengths, colors, plot_dir):
                     color=colors[i % len(colors)],
                     label=model_name[model])
         ax.set_ylabel(metric_name, fontsize=12)
-        ax.set_ylim(0, 1 if metric_name != "Brier Score" else None)
-
-        if metric_name == "MSE":
+        if metric_name == "Brier Score":
             ax.set_ylim(0, 0.3)
             ax.set_yticks([0.0, 0.1, 0.2, 0.3])
             ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))

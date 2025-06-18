@@ -13,7 +13,6 @@ def get_label_files(wildcards):
     return expand(os.path.join(ts_output[:-9], "labels", "{patient}_labels.csv").replace("\\", "/"), patient=ser)
 
 
-configfile: "config.yml"
 MINIMUM_LIFETIME = 0.5
 MAX_QUARTER = 32
 DISCRIMINATION_POINT = 365
