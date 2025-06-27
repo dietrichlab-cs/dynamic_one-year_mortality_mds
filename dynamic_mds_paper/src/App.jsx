@@ -14,6 +14,7 @@ function App() {
 
     const [uploadedFile, setUploadedFile] = useState(null);
     const [errors, setErrors] = useState({});
+    const [predictionResult, setPredictionResult] = useState(null);
 
     const karyotypeOptions = {
       0: "0 - Very Low",
@@ -98,9 +99,8 @@ function App() {
                 const err = await response.json();
                 throw new Error(err.detail);
             }
-
             const data = await response.json();
-            console.log("Predictions:", data.predictions);
+            setPredictionResult(data.prediction);  // 👈 Save the prediction
         } catch (error) {
             console.error("Prediction failed:", error);
             alert("Prediction failed: " + error.message);
@@ -147,7 +147,7 @@ function App() {
 
                     <div>
                         <label className="block font-medium">Age *</label>
-                        <input type="number" step="1" min="0" value={age} onChange={(e) => setAge(e.target.value)}
+                        <input type="number" step="0.01" min="0" value={age} onChange={(e) => setAge(e.target.value)}
                                className="w-full mt-1 p-2 border rounded"/>
                         {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age}</p>}
                     </div>
@@ -224,6 +224,29 @@ function App() {
                     </button>
                 </div>
             </form>
+            {/* Right Column: Prediction Output */}
+            <div className="col-span-1 bg-white p-6 rounded shadow flex flex-col items-center justify-center">
+              <h2 className="text-lg font-bold mb-4">Prediction Result</h2>
+
+              {predictionResult !== null ? (
+                <>
+                  {/* Color bar */}
+                  <div className="relative w-full h-8 rounded bg-gradient-to-r from-green-400 via-yellow-300 to-red-500 mt-2 mb-4">
+                    {/* Marker */}
+                    <div
+                      className="absolute top-0 h-8 w-1 bg-black"
+                      style={{ left: `${Math.min(100, Math.max(0, predictionResult * 100))}%`, transform: 'translateX(-50%)' }}
+                    />
+                  </div>
+                  {/* Numeric value */}
+                  <div className="text-center text-gray-700 text-xl font-semibold">
+                    {Math.round(predictionResult * 1000) / 10}%<br/> predicted probability for 1-year mortality
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-500">No prediction yet</p>
+              )}
+            </div>
         </div>
     );
 }

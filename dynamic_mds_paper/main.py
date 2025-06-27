@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DATE = datetime(2000, 1, 1)
+BASE_DATE = datetime(1999, 2, 25)
 
 class PredictionRequest(BaseModel):
     model: Literal["baseline", "longitudinal"]
@@ -72,10 +72,9 @@ def predict(req: PredictionRequest):
         print(input_data)
         #predictions = run_predictions(input_data)
         feature_predictor = LongitudinalFeaturePredictor(input_data)
-        feature_predictor.get_prediction()
-
         # Return structured response
-        return {"prediction": "0.5"}
+        # print(feature_predictor.get_prediction())
+        return {"prediction": str(feature_predictor.get_prediction())}
 
     except Exception as e:
         raise e
