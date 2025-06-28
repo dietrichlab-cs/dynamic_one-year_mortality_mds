@@ -11,17 +11,20 @@ function App() {
     const [fileData, setFileData] = useState([]);
     const [csvString, setCsvString] = useState("");
     const [easix, setEasix] = useState("");
+    const [hbEd, setHbEd] = useState("");
+    const [leukoEd, setLeukoEd] = useState("");
+    const [survivalTime, setSurvivalTime] = useState("");
 
     const [uploadedFile, setUploadedFile] = useState(null);
     const [errors, setErrors] = useState({});
     const [predictionResult, setPredictionResult] = useState(null);
 
     const karyotypeOptions = {
-      0: "0 - Very Low",
-      1: "1 - Low",
-      2: "2 - Intermediate",
-      3: "3 - High",
-      4: "4 - Very High",
+        0: "0 - Very Low",
+        1: "1 - Low",
+        2: "2 - Intermediate",
+        3: "3 - High",
+        4: "4 - Very High",
     };
 
     const handleCsvUpload = (e) => {
@@ -36,14 +39,14 @@ function App() {
 
             const expectedHeader = [
                 "day_from_diagnosis",
-                "Leukozyten",
-                "Erythrozyten",
-                "Hämatokrit",
-                "Thrombozyten",
-                "Hämoglobin"
+                "leukocytes",
+                "erythrocytes",
+                "hematocrit",
+                "thrombocytes",
+                "hemoglobin"
             ];
 
-            const isValidHeader = expectedHeader.every((val, idx) => val === header[idx]);
+            const isValidHeader = new Set(header).size === expectedHeader.length && expectedHeader.every(col => header.includes(col));
             if (!isValidHeader) {
                 alert("Invalid CSV header.");
                 return;
@@ -65,29 +68,66 @@ function App() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const newErrors = {};
+        if (!model) newErrors.model = "Model is required";
         if (!age) newErrors.age = "Age is required";
         if (!gender) newErrors.gender = "Gender is required";
-        if (!model) newErrors.model = "Model is required";
-        if (!csvString.trim()) newErrors.csv = "CSV data is required";
+        let formData;
+        if (model === "longitudinal") {
+            formData = await submitLongitudinalModel(newErrors)
+        } else if (model === "baseline") {
+            formData = await submitBaselineModel(newErrors)
+        } else {
+            if (Object.keys(newErrors).length > 0) {
+                setErrors(newErrors);
+                return;
+            }
+        }
+        if (formData !== null) await predict(formData)
+    };
 
+    const submitLongitudinalModel = async (newErrors) => {
+        if (!csvString.trim()) newErrors.csv = "CSV data is required";
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
-            return;
+            return null;
         }
-
         setErrors({});  // Clear previous errors
-
-        const formData = {
+        return {
             model,
             karyotype: karyotype === "" ? null : parseInt(karyotype),
             age: parseFloat(age),
             gender,
-            blasts: parseFloat(blasts),
+            blasts: blasts === "" ? null : parseFloat(blasts),
+            csv: csvString,
+            easix: null,
+            hb_ed: null,
+            leuko_ed: null,
+            survival_time: null
+        };
+    }
+
+    const submitBaselineModel = async (newErrors) => {
+        if (!survivalTime) newErrors.model = "Survival time is required";
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return null;
+        }
+        setErrors({});  // Clear previous errors
+        return  {
+            model,
+            karyotype: karyotype === "" ? null : parseInt(karyotype),
+            age: parseFloat(age),
+            gender,
+            blasts: blasts === "" ? null : parseFloat(blasts),
             csv: csvString,
             easix: easix ? parseFloat(easix) : null,
-            ...(model === "baseline" && easix !== "" && {easix: parseFloat(easix)}),
+            hb_ed: hbEd ? parseFloat(hbEd) : null,
+            leuko_ed: leukoEd ? parseFloat(leukoEd) : null,
+            survival_time: parseInt(survivalTime)
         };
+    }
 
+    const predict = async (formData) => {
         try {
             const response = await fetch("http://localhost:8000/predict", {
                 method: "POST",
@@ -105,7 +145,7 @@ function App() {
             console.error("Prediction failed:", error);
             alert("Prediction failed: " + error.message);
         }
-    };
+    }
 
     return (
         <div className="min-h-screen w-full grid grid-cols-3 gap-4 p-6 bg-gray-100">
@@ -120,7 +160,12 @@ function App() {
 
                     <div>
                         <label className="block font-medium">Model *</label>
-                        <select value={model} onChange={(e) => setModel(e.target.value)}
+                        <select value={model} onChange={(e) => {
+                            setModel(e.target.value);
+                            setCsvString("");
+                            setFileData([])
+                            setUploadedFile(null)
+                        }}
                                 className="w-full mt-1 p-2 border rounded">
                             <option value="baseline">Baseline</option>
                             <option value="longitudinal">Longitudinal</option>
@@ -140,7 +185,7 @@ function App() {
                                 className="w-full mt-1 p-2 border rounded">
                             <option value="">-- Select --</option>
                             {Object.entries(karyotypeOptions).map(([value, label]) => (
-                              <option key={value} value={value}>{label}</option>
+                                <option key={value} value={value}>{label}</option>
                             ))}
                         </select>
                     </div>
@@ -169,7 +214,32 @@ function App() {
                                    className="w-full mt-1 p-2 border rounded"/>
                         </div>
                     )}
-                    {uploadedFile ? (
+                    {model === "baseline" && (
+                        <div>
+                            <label className="block font-medium">Leukocytes at diagnosis (x1000/μl)</label>
+                            <input type="number" step="0.1" min="0" value={leukoEd}
+                                   onChange={(e) => setLeukoEd(e.target.value)}
+                                   className="w-full mt-1 p-2 border rounded"/>
+                        </div>
+                    )}
+                    {model === "baseline" && (
+                        <div>
+                            <label className="block font-medium">HB at diagnosis (g/dl)</label>
+                            <input type="number" step="0.1" min="0" value={hbEd}
+                                   onChange={(e) => setHbEd(e.target.value)}
+                                   className="w-full mt-1 p-2 border rounded"/>
+                        </div>
+                    )}
+                    {model === "baseline" && (
+                        <div>
+                            <label className="block font-medium">Survival time in days *</label>
+                            <input type="number" step="0.01" min="0" value={survivalTime}
+                                   onChange={(e) => setSurvivalTime(e.target.value)}
+                                   className="w-full mt-1 p-2 border rounded"/>
+                            {errors.survivalTime && <p className="text-red-500 text-sm mt-1">{errors.survivalTime}</p>}
+                        </div>
+                    )}
+                    {model === "longitudinal" && (uploadedFile ? (
                         <div className="mt-4 space-y-2">
                             <p className="text-sm text-gray-600">Uploaded: {uploadedFile.name}</p>
                             <button
@@ -186,10 +256,10 @@ function App() {
                         </div>
                     ) : (
                         <CsvDropZone onFileAccepted={(file) => handleCsvUpload({target: {files: [file]}})}/>
-                    )}
-                    {errors.csv && <p className="text-red-500 text-sm mt-1">{errors.csv}</p>}
+                    ))}
+                    {model === "longitudinal" && errors.csv && <p className="text-red-500 text-sm mt-1">{errors.csv}</p>}
 
-                    {fileData.length > 0 && (
+                    {model === "longitudinal" && fileData.length > 0 && (
                         <div className="overflow-x-auto mt-4 border">
                             <table className="min-w-full text-sm text-left">
                                 <thead className="bg-gray-200">
@@ -226,26 +296,30 @@ function App() {
             </form>
             {/* Right Column: Prediction Output */}
             <div className="col-span-1 bg-white p-6 rounded shadow flex flex-col items-center justify-center">
-              <h2 className="text-lg font-bold mb-4">Prediction Result</h2>
+                <h2 className="text-lg font-bold mb-4">Prediction Result</h2>
 
-              {predictionResult !== null ? (
-                <>
-                  {/* Color bar */}
-                  <div className="relative w-full h-8 rounded bg-gradient-to-r from-green-400 via-yellow-300 to-red-500 mt-2 mb-4">
-                    {/* Marker */}
-                    <div
-                      className="absolute top-0 h-8 w-1 bg-black"
-                      style={{ left: `${Math.min(100, Math.max(0, predictionResult * 100))}%`, transform: 'translateX(-50%)' }}
-                    />
-                  </div>
-                  {/* Numeric value */}
-                  <div className="text-center text-gray-700 text-xl font-semibold">
-                    {Math.round(predictionResult * 1000) / 10}%<br/> predicted probability for 1-year mortality
-                  </div>
-                </>
-              ) : (
-                <p className="text-gray-500">No prediction yet</p>
-              )}
+                {predictionResult !== null ? (
+                    <>
+                        {/* Color bar */}
+                        <div
+                            className="relative w-full h-8 rounded bg-gradient-to-r from-green-400 via-yellow-300 to-red-500 mt-2 mb-4">
+                            {/* Marker */}
+                            <div
+                                className="absolute top-0 h-8 w-1 bg-black"
+                                style={{
+                                    left: `${Math.min(100, Math.max(0, predictionResult * 100))}%`,
+                                    transform: 'translateX(-50%)'
+                                }}
+                            />
+                        </div>
+                        {/* Numeric value */}
+                        <div className="text-center text-gray-700 text-xl font-semibold">
+                            {Math.round(predictionResult * 1000) / 10}%<br/> predicted probability for 1-year mortality
+                        </div>
+                    </>
+                ) : (
+                    <p className="text-gray-500">No prediction yet</p>
+                )}
             </div>
         </div>
     );

@@ -1,13 +1,11 @@
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, validator, field_validator
+from pydantic import BaseModel, Field, validator, field_validator, model_validator
 from typing import Optional, Literal
 from fastapi.middleware.cors import CORSMiddleware
-import pandas as pd
-from io import StringIO
-from datetime import datetime, timedelta
 
-from dynamic_mds_paper.model_pipeline import LongitudinalFeaturePredictor
+
+from dynamic_mds_paper.model_pipeline import LongitudinalFeaturePredictor, BaselineFeaturePredictor
 
 # Placeholder import
 #from my_model_lib import run_predictions  # your prediction pipeline
@@ -22,7 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DATE = datetime(1999, 2, 25)
+
 
 class PredictionRequest(BaseModel):
     model: Literal["baseline", "longitudinal"]
@@ -31,32 +29,22 @@ class PredictionRequest(BaseModel):
     gender: Literal["m", "f"]
     blasts: Optional[float]
     easix: Optional[float] = None
+    hb_ed: Optional[float] = None
+    leuko_ed: Optional[float] = None
+    survival_time: Optional[int] = None
     csv: str
 
-    @field_validator("csv")
-    def check_csv_not_empty(cls, v):
-        if not v.strip():
-            raise ValueError("CSV content is empty")
-        return v
+    @model_validator(mode="before")
+    def check_csv_if_longitudinal(cls, values):
+        if values.get("model") == "longitudinal":
+            csv = values.get("csv", "")
+            if not csv.strip():
+                raise ValueError("CSV content is required for longitudinal model.")
+        return values
 
 @app.post("/predict")
 def predict(req: PredictionRequest):
     try:
-        if len(req.csv.strip().splitlines()) < 2:
-            raise HTTPException(status_code=400, detail="CSV must contain header and at least one row.")
-        df = pd.read_csv(StringIO(req.csv), index_col=0)
-
-        # Ensure index is numeric days
-        try:
-            df.index = pd.to_numeric(df.index)
-        except Exception:
-            raise HTTPException(status_code=400, detail="CSV index must be numeric day offsets.")
-        # 🆕 Drop duplicate day offsets, keep only the first occurrence
-        df = df[~df.index.duplicated(keep="first")]
-        # Convert index to datetime
-        df.index = [BASE_DATE + timedelta(days=int(d)) for d in df.index]
-        df.index.name = "date"
-
         # Package inputs for the model
         input_data = {
             "model": req.model,
@@ -65,13 +53,20 @@ def predict(req: PredictionRequest):
             "gender": req.gender,
             "blasts": req.blasts,
             "easix": req.easix,
-            "features": df
+            "leuko_ed": req.leuko_ed,
+            "hb_ed": req.hb_ed,
+            "survival_time": req.survival_time,
+            "features": req.csv
         }
 
         # Call user-defined prediction pipeline
         print(input_data)
         #predictions = run_predictions(input_data)
-        feature_predictor = LongitudinalFeaturePredictor(input_data)
+        if input_data["model"] == "longitudinal":
+            feature_predictor = LongitudinalFeaturePredictor(input_data)
+        else:
+            feature_predictor = BaselineFeaturePredictor(input_data)
+
         # Return structured response
         # print(feature_predictor.get_prediction())
         return {"prediction": str(feature_predictor.get_prediction())}

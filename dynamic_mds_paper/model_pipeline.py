@@ -1,17 +1,19 @@
-import csv
 import math
-import uuid
 from collections import defaultdict
+
+import math
+from collections import defaultdict
+from datetime import datetime
+from datetime import timedelta
+from io import StringIO
 
 import joblib
 import numpy as np
+import pandas as pd
 import tsflex.features as ts
+from fastapi import HTTPException
 from tsflex.features.integrations import tsfresh_settings_wrapper
 from tsflex.features.utils import make_robust
-import pandas as pd
-import scipy as sc
-from datetime import datetime
-
 
 TS_FRESH_FUNCS = {
         "kurtosis": None,
@@ -56,6 +58,39 @@ class LongitudinalFeaturePredictor:
         self.first_diagnosis = None
         self.input_data = input_data
         self.model = joblib.load('models/gbm_all_patients.joblib')
+        self.BASE_DATE = datetime(2000, 1, 1)
+        self.RENAME_DICT = {
+            "leukocytes": "Leukozyten",
+            "thrombocytes": "Thrombozyten",
+            "erythrocytes": "Erythrozyten",
+            "hemoglobin": "Hämoglobin",
+            "hematocrit": "Hämatokrit",
+            "day_from_diagnosis": "day_from_diagnosis"
+        }
+
+    def _convert_csv_string(self):
+        csvString = self.input_data["features"]
+        if len(csvString.strip().splitlines()) < 2:
+            raise HTTPException(status_code=400, detail="CSV must contain header and at least one row.")
+        df = pd.read_csv(StringIO(csvString))
+        df.rename(columns=self.RENAME_DICT, inplace=True)
+        df.set_index("day_from_diagnosis", inplace=True)
+        # Ensure index is numeric days
+        try:
+            df.index = pd.to_numeric(df.index)
+        except Exception:
+            raise HTTPException(status_code=400, detail="CSV index must be numeric day offsets.")
+        # Convert index to datetime
+        df.index = [self.BASE_DATE + timedelta(days=int(d)) for d in df.index]
+        # Insert BASE_DATE row if missing
+        if self.BASE_DATE not in df.index:
+            base_row = pd.DataFrame([[pd.NA] * len(df.columns)], columns=df.columns, index=[self.BASE_DATE])
+            df = pd.concat([base_row, df])
+            df = df[~df.index.duplicated(keep="first")]
+            df.sort_index(inplace=True)
+
+        df.index.name = "date"
+        self.input_data["features"] = df
 
     def _extract_features_for_patient(self):
         # define additional non tsfresh feature functions
@@ -139,6 +174,7 @@ class LongitudinalFeaturePredictor:
 
 
     def get_prediction(self):
+        self._convert_csv_string()
         # start with extracting all the features from the time-series
         self._extract_features_for_patient()
         # if the feature matrix is empty we exclude the patient from further analysis
@@ -147,4 +183,51 @@ class LongitudinalFeaturePredictor:
         self._add_constant_features()
         print(self.feature_matrix)
         self.feature_matrix.to_csv("sanity.csv")
+        return self._get_probability()[0][1]
+
+class BaselineFeaturePredictor:
+
+    def __init__(self, input_data):
+        self.discrimination_point = 365
+        self.min_nb_samples = 3
+        self.max_quarters = 32
+        self.first_diagnosis = None
+        self.input_data = input_data
+        self.model = joblib.load('models/gbm_all_patients_easix_baseline.joblib')
+        self.feature_matrix = pd.DataFrame(columns=["blasts", "age", "cyto", "gender", "karyotype", "easix", "leuko_ed", "hb_ed"])
+
+
+    def _add_constant_features(self):
+        # Build a new row with constants
+        const_row = {
+            "blasts": float(self.input_data["blasts"]) if self.input_data["blasts"] is not None else np.nan,
+            "age": float(self.input_data["age"]),
+            "cyto": float(self.input_data["karyotype"]) if self.input_data["karyotype"] is not None else np.nan,
+            "gender": 0.0 if self.input_data["gender"] == "f" else 1.0,
+            "easix": float(self.input_data["easix"]) if self.input_data["easix"] is not None else np.nan,
+            "leuko_ed": float(self.input_data["leuko_ed"]) if self.input_data["leuko_ed"] is not None else np.nan,
+            "hb_ed": float(self.input_data["hb_ed"]) if self.input_data["hb_ed"] is not None else np.nan,
+            "window_length": float(self.input_data["survival_time"]) if self.input_data["survival_time"] is not None else np.nan,
+            "quarters": math.ceil(max((self.input_data["survival_time"] / 90), 1e-8)) if self.input_data["survival_time"] is not None else np.nan,
+        }
+        # Create a DataFrame with this single row
+        const_df = pd.DataFrame([const_row], index=[0])
+        # Append to the feature matrix
+        self.feature_matrix = pd.concat([self.feature_matrix, const_df], axis=0)
+        # Optional: ensure correct types
+        self.feature_matrix = self.feature_matrix.astype("float32")
+
+    def _get_probability(self):
+        # Retrieve feature names from the pretrained model
+        feature_names = self.model.get_booster().feature_names
+        # Filter features for those used in the trained model
+        self.feature_matrix = self.feature_matrix[feature_names]
+        print(self.feature_matrix)
+        return self.model.predict_proba(self.feature_matrix)
+
+
+    def get_prediction(self):
+        self._add_constant_features()
+        print(self.feature_matrix)
+        self.feature_matrix.to_csv("sanity_baseline.csv")
         return self._get_probability()[0][1]
