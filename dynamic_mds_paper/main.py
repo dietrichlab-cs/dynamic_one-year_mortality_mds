@@ -1,3 +1,4 @@
+import os
 from typing import Optional, Literal
 
 import uvicorn
@@ -15,15 +16,19 @@ from model_pipeline import LongitudinalFeaturePredictor, BaselineFeaturePredicto
 # Placeholder import
 #from my_model_lib import run_predictions  # your prediction pipeline
 
+is_dev = os.getenv("ENV", "prod") == "dev"
+allowed_origins = ["http://localhost:5173"] if is_dev else ["https://dietrichlab.de"]
+root_path = "" if is_dev else "/PythonApps"
+print(root_path, is_dev, allowed_origins)
 app = FastAPI()
 
 # Templates & Static
-app.mount("/PythonApps/assets", StaticFiles(directory="dist/assets"), name="assets")
+app.mount(f"{root_path}/assets", StaticFiles(directory="dist/assets"), name="assets")
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://dietrichlab.de/"],  # Replace with specific domain in production
+    allow_origins=allowed_origins,  # Replace with specific domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,11 +56,11 @@ class PredictionRequest(BaseModel):
                 raise ValueError("CSV content is required for longitudinal model.")
         return values
 
-@app.get("/PythonApps/", response_class=HTMLResponse)
+@app.get(f"{root_path}/", response_class=HTMLResponse)
 async def index(request: Request):
     return FileResponse("dist/index.html")
 
-@app.post("/PythonApps/predict")
+@app.post(f"{root_path}/predict")
 def predict(req: PredictionRequest):
     try:
         # Package inputs for the model

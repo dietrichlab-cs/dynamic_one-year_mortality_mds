@@ -128,8 +128,9 @@ function App() {
     }
 
     const predict = async (formData) => {
+        const url = import.meta.env.VITE_API_URL;
         try {
-            const response = await fetch("https://dietrichlab.de/longitudinal-mds/predict", {
+            const response = await fetch(url, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(formData),
