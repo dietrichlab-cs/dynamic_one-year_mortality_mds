@@ -1,20 +1,29 @@
+from typing import Optional, Literal
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, validator, field_validator, model_validator
-from typing import Optional, Literal
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, model_validator
+from requests_html import HTMLResponse
+from starlette.requests import Request
+from starlette.responses import FileResponse
+from starlette.staticfiles import StaticFiles
+from starlette.templating import Jinja2Templates
 
-
-from dynamic_mds_paper.model_pipeline import LongitudinalFeaturePredictor, BaselineFeaturePredictor
+from model_pipeline import LongitudinalFeaturePredictor, BaselineFeaturePredictor
 
 # Placeholder import
 #from my_model_lib import run_predictions  # your prediction pipeline
 
 app = FastAPI()
 
+# Templates & Static
+app.mount("/PythonApps/assets", StaticFiles(directory="dist/assets"), name="assets")
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with specific domain in production
+    allow_origins=["https://dietrichlab.de/"],  # Replace with specific domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,7 +51,11 @@ class PredictionRequest(BaseModel):
                 raise ValueError("CSV content is required for longitudinal model.")
         return values
 
-@app.post("/predict")
+@app.get("/PythonApps/", response_class=HTMLResponse)
+async def index(request: Request):
+    return FileResponse("dist/index.html")
+
+@app.post("/PythonApps/predict")
 def predict(req: PredictionRequest):
     try:
         # Package inputs for the model
@@ -72,8 +85,5 @@ def predict(req: PredictionRequest):
         return {"prediction": str(feature_predictor.get_prediction())}
 
     except Exception as e:
-        raise e
-        #raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        #raise e
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")

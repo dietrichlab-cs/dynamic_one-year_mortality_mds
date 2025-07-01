@@ -36,29 +36,18 @@ function CsvDropZone({onFileAccepted}) {
             className={`w-full p-6 border-2 border-dashed rounded-md transition-colors
         ${isDragOver ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-white"}`}
         >
-            <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">Upload CSV *</label>
-                <button
-                    type="button"
-                    onClick={() => setShowCsvHelp(!showCsvHelp)}
-                    className="text-sm text-blue-600 underline hover:text-blue-800"
-                >
-                    CSV format help
-                </button>
+            <div className="mb-4 p-4 border rounded bg-gray-50 text-sm text-gray-700 shadow">
+                <p className="font-medium mb-1">Expected CSV format/columns:<br/>Each row corresponds to a day of measurements. ONLY input one measurement per day.<br/>The file should include a header with the below column names.</p>
+                <ul className="list-disc list-inside">
+                    <li><code>day_from_diagnosis</code>: integer, measurement day offset from diagnosis day</li>
+                    <li><code>leukocytes</code>: float, unit x1000/μl</li>
+                    <li><code>erythrocytes</code>: float, unit Mio/μl</li>
+                    <li><code>thrombocytes</code>: float, unit x1000/μl</li>
+                    <li><code>hematocrit</code>: float, unit g/dl</li>
+                </ul>
+                <p className="mt-2">The first row should contain column headers.</p>
             </div>
-            {showCsvHelp && (
-                <div className="mb-4 p-4 border rounded bg-gray-50 text-sm text-gray-700 shadow">
-                    <p className="font-medium mb-1">Expected CSV format/columns:<br/>Each row corresponds to a day of measurements. ONLY input one measurement per day.<br/>The file should include a header with the below column names.</p>
-                    <ul className="list-disc list-inside">
-                        <li><code>day_from_diagnosis</code>: integer, measurement day offset from diagnosis day</li>
-                        <li><code>leukocytes</code>: float, unit x1000/μl</li>
-                        <li><code>erythrocytes</code>: float, unit Mio/μl</li>
-                        <li><code>thrombocytes</code>: float, unit x1000/μl</li>
-                        <li><code>hematocrit</code>: float, unit g/dl</li>
-                    </ul>
-                    <p className="mt-2">The first row should contain column headers.</p>
-                </div>
-            )}
+
             <div className="text-center text-gray-500">
                 <p>Drag and drop a .csv file here, or click to browse</p>
                 <input
