@@ -15,6 +15,7 @@ from fastapi import HTTPException
 from tsflex.features.integrations import tsfresh_settings_wrapper
 from tsflex.features.utils import make_robust
 
+# set of tsfresh functions that are used for the feature extraction with their parameters
 TS_FRESH_FUNCS = {
         "kurtosis": None,
         "large_standard_deviation":[{'r': 0.05}, {'r': 0.1}, {'r': 0.25}, {'r': 0.5}],
@@ -48,7 +49,7 @@ def additional_custom_features(x: pd.Series):
 
 
 
-
+# class for the longitudinal feature extraction and prediction
 class LongitudinalFeaturePredictor:
 
     def __init__(self, input_data):
@@ -58,7 +59,9 @@ class LongitudinalFeaturePredictor:
         self.first_diagnosis = None
         self.input_data = input_data
         self.model = joblib.load('models/gbm_all_patients.joblib')
+        # we set a mock-up date for transforming the day_from_diagnosis index to a datetime index
         self.BASE_DATE = datetime(2000, 1, 1)
+        # the models were trained on german feature names, so we need to rename the columns accordingly
         self.RENAME_DICT = {
             "leukocytes": "Leukozyten",
             "thrombocytes": "Thrombozyten",
@@ -70,10 +73,13 @@ class LongitudinalFeaturePredictor:
 
     def _convert_csv_string(self):
         csvString = self.input_data["features"]
+        # check if the CSV string is empty
         if len(csvString.strip().splitlines()) < 2:
             raise HTTPException(status_code=400, detail="CSV must contain header and at least one row.")
         df = pd.read_csv(StringIO(csvString))
+        # rename columns to match the model's expectations
         df.rename(columns=self.RENAME_DICT, inplace=True)
+        # start index transformation
         df.set_index("day_from_diagnosis", inplace=True)
         # Ensure index is numeric days
         try:
@@ -82,7 +88,7 @@ class LongitudinalFeaturePredictor:
             raise HTTPException(status_code=400, detail="CSV index must be numeric day offsets.")
         # Convert index to datetime
         df.index = [self.BASE_DATE + timedelta(days=int(d)) for d in df.index]
-        # Insert BASE_DATE row if missing
+        # Insert BASE_DATE row if missing, this is needed for feature extraction
         if self.BASE_DATE not in df.index:
             base_row = pd.DataFrame([[pd.NA] * len(df.columns)], columns=df.columns, index=[self.BASE_DATE])
             df = pd.concat([base_row, df])
@@ -97,7 +103,6 @@ class LongitudinalFeaturePredictor:
         add_feats = make_robust(ts.FuncWrapper(additional_custom_features,
                                               [
                                                   "last_three_points_slope"
-                                                  #"last_value"
                                               ],
                                               input_type=pd.Series), passthrough_nans=False, min_nb_samples=self.min_nb_samples)
         # define tsfresh feature funtions
@@ -132,7 +137,6 @@ class LongitudinalFeaturePredictor:
 
         # extract features
         window = (input_df.index.max() - input_df.index.min()).days + 1
-        print(window)
         # the stride for the feature collection is just the complete timespan between first_diagnosis and death.
         # This ensures we only get the first window since it is the only one we are interested in
         fc = ts.FeatureCollection(
@@ -146,7 +150,6 @@ class LongitudinalFeaturePredictor:
         # calculate the extracted features
         extracted_features = fc.calculate(input_df, return_df=True, window_idx="begin", show_progress=False,
                                           approve_sparsity=True, include_final_window=True, n_jobs=1)
-        print(extracted_features)
         # set NaN values to a very low value to indicate an unplausible value (this is possible because of very rare NaN values)
         extracted_features.fillna(value=-1000, inplace=True)
 
@@ -181,10 +184,11 @@ class LongitudinalFeaturePredictor:
         if self.feature_matrix is None:
             return None
         self._add_constant_features()
-        print(self.feature_matrix)
         self.feature_matrix.to_csv("sanity.csv")
         return self._get_probability()[0][1]
 
+
+# class for the baseline feature construction and prediction
 class BaselineFeaturePredictor:
 
     def __init__(self, input_data):
@@ -222,12 +226,10 @@ class BaselineFeaturePredictor:
         feature_names = self.model.get_booster().feature_names
         # Filter features for those used in the trained model
         self.feature_matrix = self.feature_matrix[feature_names]
-        print(self.feature_matrix)
         return self.model.predict_proba(self.feature_matrix)
 
 
     def get_prediction(self):
         self._add_constant_features()
-        print(self.feature_matrix)
         self.feature_matrix.to_csv("sanity_baseline.csv")
         return self._get_probability()[0][1]

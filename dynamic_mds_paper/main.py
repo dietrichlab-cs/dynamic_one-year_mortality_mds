@@ -1,7 +1,6 @@
 import os
 from typing import Optional, Literal
 
-import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, model_validator
@@ -9,23 +8,25 @@ from requests_html import HTMLResponse
 from starlette.requests import Request
 from starlette.responses import FileResponse
 from starlette.staticfiles import StaticFiles
-from starlette.templating import Jinja2Templates
 
 from model_pipeline import LongitudinalFeaturePredictor, BaselineFeaturePredictor
 
-# Placeholder import
-#from my_model_lib import run_predictions  # your prediction pipeline
-
+# ---- Configuration ----
+# Set the specified environment variable to determine if the app is in development mode
+# we assert that dev mode == npm run dev for the vite frontend
 is_dev = os.getenv("ENV", "prod") == "dev"
 allowed_origins = ["http://localhost:5173"] if is_dev else ["https://dietrichlab.de"]
 root_path = "" if is_dev else "/PythonApps"
-print(root_path, is_dev, allowed_origins)
+
+# define app
 app = FastAPI()
 
-# Templates & Static
+# ---- Templates & Static ----
+# mount static files. This is just needed for production or for running a production-like local instance
+# the templates originate from npm run build.
 app.mount(f"{root_path}/assets", StaticFiles(directory="dist/assets"), name="assets")
 
-
+# ---- CORS config ----
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,  # Replace with specific domain in production
@@ -35,7 +36,7 @@ app.add_middleware(
 )
 
 
-
+# ---- Model DTO ----
 class PredictionRequest(BaseModel):
     model: Literal["baseline", "longitudinal"]
     karyotype: Optional[int]
@@ -48,6 +49,7 @@ class PredictionRequest(BaseModel):
     survival_time: Optional[int] = None
     csv: str
 
+    # we do validate that the csv is not empty if the model is longitudinal
     @model_validator(mode="before")
     def check_csv_if_longitudinal(cls, values):
         if values.get("model") == "longitudinal":
@@ -56,10 +58,13 @@ class PredictionRequest(BaseModel):
                 raise ValueError("CSV content is required for longitudinal model.")
         return values
 
+# ---- Routes ----
+# serve static frontend files
 @app.get(f"{root_path}/", response_class=HTMLResponse)
 async def index(request: Request):
     return FileResponse("dist/index.html")
 
+# endpoint for prediction
 @app.post(f"{root_path}/predict")
 def predict(req: PredictionRequest):
     try:
@@ -78,17 +83,13 @@ def predict(req: PredictionRequest):
         }
 
         # Call user-defined prediction pipeline
-        print(input_data)
-        #predictions = run_predictions(input_data)
         if input_data["model"] == "longitudinal":
             feature_predictor = LongitudinalFeaturePredictor(input_data)
         else:
             feature_predictor = BaselineFeaturePredictor(input_data)
 
         # Return structured response
-        # print(feature_predictor.get_prediction())
         return {"prediction": str(feature_predictor.get_prediction())}
 
     except Exception as e:
-        #raise e
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
