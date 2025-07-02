@@ -16,7 +16,7 @@ from model_pipeline import LongitudinalFeaturePredictor, BaselineFeaturePredicto
 # we assert that dev mode == npm run dev for the vite frontend
 is_dev = os.getenv("ENV", "prod") == "dev"
 allowed_origins = ["http://localhost:5173"] if is_dev else ["https://dietrichlab.de"]
-root_path = "" if is_dev else "/PythonApps"
+root_path = "" if is_dev else "/PythonApps/dynamic_mds_paper"
 
 # define app
 app = FastAPI()
@@ -24,8 +24,7 @@ app = FastAPI()
 # ---- Templates & Static ----
 # mount static files. This is just needed for production or for running a production-like local instance
 # the templates originate from npm run build.
-app.mount(f"{root_path}/assets", StaticFiles(directory="dist/assets"), name="assets")
-
+app.mount(f"{root_path}", StaticFiles(directory="dist", html=True), name="static")
 # ---- CORS config ----
 app.add_middleware(
     CORSMiddleware,
@@ -59,11 +58,6 @@ class PredictionRequest(BaseModel):
         return values
 
 # ---- Routes ----
-# serve static frontend files
-@app.get(f"{root_path}/", response_class=HTMLResponse)
-async def index(request: Request):
-    return FileResponse("dist/index.html")
-
 # endpoint for prediction
 @app.post(f"{root_path}/predict")
 def predict(req: PredictionRequest):
@@ -92,4 +86,5 @@ def predict(req: PredictionRequest):
         return {"prediction": str(feature_predictor.get_prediction())}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
+        raise e
+        #raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")

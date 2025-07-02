@@ -7,6 +7,6 @@ export default defineConfig(({ mode }) => {
   const isProd = mode === 'production';
   return {
     plugins: [react(), tailwindcss()],
-    base: isProd ? '/PythonApps/' : '/',
+    base: isProd ? '/PythonApps/dynamic_mds_paper/' : '/',
   };
 })
