@@ -2,10 +2,12 @@
 
 This repository cotains all code for the related publication titled "Dynamic Mortality Risk Prediction in Myelodysplastic Syndromes Using Longitudinal Clinical Data" by Bobak et al. 
 
-The "publication" branch contains all plots and code related to the generation of results for the paper. Code in here is provided "as is" to have an accurate depiction of the code used to generate all results. We will add an additional branch in the future, containing cleaned and more user friendly code. 
+The "publication" branch contains all plots and code related to the generation of results for the paper. Code in here is provided to make results reproducible and to allow for further analysis of the data. 
+You should be able to get the exact same results as the publication given the same input data or may try to adapt the pipeline to your own data. 
+The second part is not the main focus of this repository, but we provide the code to allow for it. Note that due to differing data formats you may need to adapt the code to your own data, see section "Run and train on your own data" below for more information.
 
 The "webapp" branch contains the sample application avavailable here: https://dietrichlab.de/PythonApps/dynamic_mds_paper/
-NOTE: This web-application is purely for research purposes. 
+NOTE: This web-application is purely for research purposes.
 
 
 ### Pipeline
