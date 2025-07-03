@@ -2,13 +2,14 @@
 
 This repository cotains all code for the related publication titled "Dynamic Mortality Risk Prediction in Myelodysplastic Syndromes Using Longitudinal Clinical Data" by Bobak et al. 
 
-The "publication" branch contains all plots and code related to the generation of results for the paper. Code in here is provided to make results reproducible and to allow for further analysis of the data. 
+The `publication` branch contains all plots and code related to the generation of results for the paper. Code in here is provided to make results reproducible and to allow for further analysis of the data. 
 You should be able to get the exact same results as the publication given the same input data or may try to adapt the pipeline to your own data. 
 The second part is not the main focus of this repository, but we provide the code to allow for it. Note that due to differing data formats you may need to adapt the code to your own data, see section "Run and train on your own data" below for more information.
 
-The "webapp" branch contains the sample application avavailable here: https://dietrichlab.de/PythonApps/dynamic_mds_paper/
+The `webapp` branch contains the sample application avavailable here: https://dietrichlab.de/PythonApps/dynamic_mds_paper/
 NOTE: This web-application is purely for research purposes.
 
+The `publication_raw` branch contains the raw code used during paper creation. The `publication` branch is a cleaned version of this code more easily applicable for generalization to new datasets. The code in this branch is highly dependent on the dataset and more organically grown during data and result generation.
 
 ### Pipeline
 
@@ -33,12 +34,26 @@ You need the following columns:
 - `event_date`: Date of the event (e.g. death, last follow-up)
 - `event`: Event type (e.g. death, alive on last follow-up), 2 = death, 0 = alive 
 - `age`: Age of the patient at diagnosis
+- `birthdate`: Date of birth of the patient, this is used to calculate the age at diagnosis if not provided
 - `gender`: Gender of the patient
 - `blasts`: Percentage of blasts in the bone marrow at diagnosis
 - `cyto`: Cytogenetic risk group of the patient at diagnosis according to the IPSS-R (e.g. good, intermediate, poor) coded as 0-very good to 4-very poor
+- `easix`: EASIX score at diagnosis
 Optional:
 - `alloHSCT`: Whether the patient received an allogeneic stem cell transplant, you need to filter them out if not done already
-- `birthdate`: Date of birth of the patient, this is used to calculate the age at diagnosis if not provided
+
+The final output should be a dataframe with patients not filtered due to any criteria with the following columns: 
+- `id`: generic ID column, can be whatever you choose to be a suitable id
+- `cis_id`: ID used to merge diagnosis-based data with longitudinal lab data
+- `age`: Age of a patient at diagnosis
+- `gender`: 0 = male, 1 = female
+- `blasts`: Percentage of blasts in the bone marrow at diagnosis
+- `cyto`: Cytogenetic risk group of the patient at diagnosis according to the IPSS-R (e.g. good, intermediate, poor) coded as 0-very good to 4-very poor
+- `birthdate`: Date of birth of the patient in DMY format (dd.MM.yyyy)
+- `diagnosis_date`: Diagnosis date in DMY format (dd.MM.yyyy)
+- `censoring_date`: Event or censoring date in DMY format (dd.MM.yyyy)
+- `censoring_type`: 0 = alive, 2 = dead (1 was used for lost-to-follow-up for some time but was dropped as it is now handled as 0 = alive with the proper censoring date)
+- `easix`: Raw EASIX score at diagnosis 
 
 #### Adjust the `extract_ts_patient_data.py` script. 
 This script extracts the longitudinal data for each patient and transforms it into a standard dataframe format. For us this involved scanning through different files.
@@ -59,7 +74,8 @@ In the end you need a single raw_data file per patient.
 
 #### Rest of the pipeline
 
-The rest of the pipeline should work as is. The `Snakefile_no_filter` will generate a feature matrix and the `Snakefile_training_only` will train the models on the generated feature matrix.
+The rest of the pipeline should work as is since all the downstream steps depend on the first 2 pipeline scripts. 
+The `Snakefile_no_filter` will generate a feature matrix and the `Snakefile_training_only` will train the models on the generated feature matrix.
 
 ### Output
 
