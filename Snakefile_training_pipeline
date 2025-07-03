@@ -25,7 +25,6 @@ rule train_longitudinal:
 rule train_baseline:
     input:
         DATASET_DIR + "/survival_feature_matrix.csv",
-        DATASET_DIR + "/kaplan_meier_input_easix.csv"
     output:
         DATASET_DIR + "/models/gbm_all_patients_baseline.joblib",
     params:
