@@ -1,0 +1,101 @@
+import os
+
+# DATA_FOLDER_ID, = glob_wildcards("data/publication_meddat_data/abfrage_{id}.csv")
+
+def get_time_series_files(wildcards):
+    ts_output = checkpoints.build_patient_time_series.get(**wildcards).output[0]
+    ser, = glob_wildcards(os.path.join(ts_output, "{patient}.csv"))
+    return expand(os.path.join(ts_output[:-9], "features", "{patient}_feature_matrix.csv").replace("\\", "/"), patient=ser)
+
+def get_label_files(wildcards):
+    ts_output = checkpoints.build_patient_time_series.get(**wildcards).output[0]
+    ser, = glob_wildcards(os.path.join(ts_output, "{patient}.csv"))
+    return expand(os.path.join(ts_output[:-9], "labels", "{patient}_labels.csv").replace("\\", "/"), patient=ser)
+
+
+configfile: "config.yml"
+MINIMUM_LIFETIME = 0.5
+MAX_QUARTER = 32
+DISCRIMINATION_POINT = 365
+DATASET_DIR = "data/publication_output/d_mannheim"
+
+# this step filters patients based on missing meta information and patients with stem-cell-transplantation
+rule create_patient_set:
+    input:
+        "data/validation_mannheim/mannheim_admission.csv",
+    output:
+        DATASET_DIR + "/patient_data_filtered.csv",
+        DATASET_DIR + "/ids_filtered.csv"
+    params:
+        minimum_lifetime=MINIMUM_LIFETIME
+    script:
+        "scripts_mannheim/filter_patients.py"
+
+# this step extracts the chosen parameters parameters from the MEDICO outputs
+checkpoint build_patient_time_series:
+    input:
+        DATASET_DIR + "/patient_data_filtered.csv",
+        ["data/validation_mannheim/lab_mannheim.csv"]
+    params:
+        parameters = {"Hämoglobin": "Hämoglobin","Hämatokrit": "Hämatokrit","Erythrozyten": "Erythrozyten","Thrombozyten": "Thrombozyten","Leukozyten (BLO)": "Leukozyten"},
+        alias_parameter = [],
+        output_directory = DATASET_DIR,
+        minimum_entries= 3
+    output:
+        directory(DATASET_DIR + "/raw_data/")
+    script:
+        "scripts_mannheim/extract_ts_patient_data.py"
+
+
+# some meta information on the patient is extracted in this step. Like the available data-span and if the event of interest occurred
+rule data_analysis:
+    input:
+        DATASET_DIR + "/patient_data_filtered.csv",
+        DATASET_DIR + "/raw_data/{patient}.csv"
+    params:
+        dataset_name = DATASET_DIR,
+    output:
+        DATASET_DIR + "/labels/{patient}_labels.csv"
+    script:
+        "scripts_mannheim/data_analysis.py"
+
+
+
+# this step sub-samples the time-series and extracts the chosen time-series features
+rule build_time_series_feature_matrix:
+    input:
+        DATASET_DIR + "/labels/{patient}_labels.csv",
+        DATASET_DIR + "/raw_data/{patient}.csv"
+    output:
+        DATASET_DIR + "/features/{patient}_feature_matrix.csv"
+    params:
+        discrimination_point=DISCRIMINATION_POINT,
+        min_nb_samples=3,
+        max_quarter=MAX_QUARTER,
+    script:
+        "scripts_mannheim/build_time_series_feature_matrix.py"
+
+
+
+# this step combines the time-series feature outputs with the set of chosen constant admission based parameters
+rule build_complete_feature_matrix:
+    input:
+        DATASET_DIR + "/patient_data_filtered.csv",
+        get_time_series_files
+    output:
+        DATASET_DIR + "/survival_feature_matrix.csv",
+        DATASET_DIR + "/survival_constant_only_feature_matrix.csv",
+    params:
+        subsamples = MAX_QUARTER,
+        dataset_dir = DATASET_DIR
+    threads: 4
+    script:
+        "scripts_mannheim/build_complete_feature_matrix.py"
+
+
+rule all:
+    input:
+        DATASET_DIR + "/survival_feature_matrix.csv",
+        # DATASET_DIR + "/feature_importance.csv"
+
+

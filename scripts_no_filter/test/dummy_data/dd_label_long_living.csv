@@ -1,0 +1,2 @@
+Patient,Medico,lifetime,diagnosis,First observation,event,Last observation,difference_start,difference_death,entries,span,alive
+1,1000000,11688,2018-01-01 00:00:00,2018-01-01 00:00:00,2050-01-01 00:00:00,2050-01-01 00:02:00,0,0,1,11 688,-1
