@@ -101,8 +101,7 @@ rule classify:
         "data/publication_output/dataset/models/gbm_all_patients_easix_baseline.joblib",
         DATASET_DIR + "/survival_feature_matrix.csv",
     output:
-        DATASET_DIR + "/metrics_full_model.txt"
-        # DATASET_DIR + "/feature_importance.csv"
+        DATASET_DIR + "/metrics_heidelberg.txt"
     params:
         plot_dir=DATASET_DIR + "/plots",
         max_quarter = MAX_QUARTER
@@ -112,7 +111,6 @@ rule classify:
 
 rule all:
     input:
-        DATASET_DIR + "/metrics_full_model.txt",
-        # DATASET_DIR + "/feature_importance.csv"
+        DATASET_DIR + "/metrics_heidelberg.txt",
 
 

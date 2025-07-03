@@ -100,7 +100,6 @@ rule classify:
     input:
         DATASET_DIR + "/survival_feature_matrix.csv",
         DATASET_DIR + "/survival_constant_only_feature_matrix.csv",
-        DATASET_DIR + "/kaplan_meier_input_easix.csv"
     output:
         DATASET_DIR + "/classification.csv",
         DATASET_DIR + "/feature_importance.csv"

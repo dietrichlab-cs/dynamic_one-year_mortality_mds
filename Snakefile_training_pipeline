@@ -9,7 +9,7 @@ DISCRIMINATION_POINT = 365
 DATASET_DIR = "data/publication_output/dataset"
 
 # final step, used for model training and evaluation
-rule classify:
+rule train_longitudinal:
     input:
         DATASET_DIR + "/survival_feature_matrix.csv",
     output:
@@ -20,23 +20,23 @@ rule classify:
         model_params = {"n_estimators": 1500, "learning_rate": 0.01, "max_depth": 3, "features_per_split": 80, "random_state": 123, "sample_weight": 2.3}
     threads: 8
     script:
-        "scripts_no_filter/model_training_only.py"
+        "scripts_no_filter/train_longitudinal_model.py"
 
-rule classify_with_easix:
+rule train_baseline:
     input:
         DATASET_DIR + "/survival_feature_matrix.csv",
         DATASET_DIR + "/kaplan_meier_input_easix.csv"
     output:
-        DATASET_DIR + "/models/gbm_all_patients_easix_baseline.joblib",
+        DATASET_DIR + "/models/gbm_all_patients_baseline.joblib",
     params:
         model_params = {"n_estimators": 500, "learning_rate": 0.01, "max_depth": 3, "features_per_split": 80, "random_state": 123, "sample_weight": 2.3}
     threads: 8
     script:
-        "scripts_no_filter/model_training_only_with_easix.py"
+        "scripts_no_filter/train_baseline_model.py"
 
 rule all:
     input:
         DATASET_DIR + "/models/gbm_all_patients.joblib",
-        DATASET_DIR + "/models/gbm_all_patients_easix_baseline.joblib",
+        DATASET_DIR + "/models/gbm_all_patients_baseline.joblib",
 
 

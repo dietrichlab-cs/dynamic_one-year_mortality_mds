@@ -21,7 +21,7 @@ from scripts_no_filter.lib.helper import get_train_test,compute_tte_mse
 from scripts_no_filter.plotting.plotting_utils import plot_metric_by_length, plot_average_metric_by_length, \
     plot_feature_importance, plot_single_index_result_metric, plot_tte, plot_ratio_over_time, plot_brier, \
     precision_recall_plot, aur_roc_plot, plot_loss, classification_plot, calibration_plot, plot_kaplan_meier, \
-    plot_average_metrics_by_length
+    plot_average_metrics_by_length, plot_metrics_by_length
 
 DATASET_DIR = "../data/publication_output/dataset"
 PLOT_DIR = DATASET_DIR + "/plots"
@@ -82,8 +82,8 @@ def classify(X_train, y_train, X_test, y_test, feature_matrix, model_params = MO
     print("Log loss:", loss)
     print("AUROC:\n{:.6f}".format(auroc))
     print(classification_report(y_test, y_pred))
-
     test_data_df = feature_matrix.loc[X_test.index]
+    print(y_pred.shape, X_test.shape, test_data_df.shape)
     test_data_df = test_data_df.assign(predicted_class=y_pred)
 
     mse_tte = compute_tte_mse(test_data_df, y_test, y_prob[:,1])
@@ -132,9 +132,7 @@ def grid_search(X_train, y_train, X_test, y_test):
 
 
 def process_fold(i, split_idx, train_idx, test_idx, feature_matrix_constants, feature_matrix, lengths, folds):
-    # Your existing code inside the loops goes here
     print("-----------NEW FOLD------------")
-
     X_train, y_train, X_test, y_test = get_train_test(feature_matrix, train_idx, test_idx, MAX_QUARTER)
 
     X_train_baseline = X_train[["quarters", "window_length", "gender", "age", "blasts", "cyto", "leuko_ed", "hb_ed", "easix"]]
@@ -149,12 +147,6 @@ def process_fold(i, split_idx, train_idx, test_idx, feature_matrix_constants, fe
     print("Test samples label distribution:")
     print(feature_matrix.loc[X_test.index, "label"].value_counts())
     prevalence = sum(y_test)/len(y_test)
-    # IPSSR EVAL
-    #print("IPSSR EVAL")
-    #kmf_estimators = kaplan_meier(train_idx, kaplan_meier_input, False)
-    #metrics_km, y_prob_ipssr, tte_cur = calculate_kaplan_meier_error(
-    #    test_idx, X_test, y_test, kmf_estimators, feature_matrix
-    #)
 
     # GBM EVAL
     print("GBM EVAL")
@@ -167,7 +159,6 @@ def process_fold(i, split_idx, train_idx, test_idx, feature_matrix_constants, fe
     )
 
     # Collect length-based metrics
-    length_metrics = {}
     length_metrics_list = []
     for l in lengths:
         sample_idx_length = feature_matrix.loc[X_test.index, 'quarters'] == l
@@ -259,7 +250,8 @@ def cross_validation(feature_matrix, feature_matrix_constants, feature_importanc
 
     plot_tte(tte_gbm, meanlineprops, medianprops, colors, PLOT_DIR)
     plot_ratio_over_time(length_metrics_full_df, lengths, meanlineprops, medianprops, colors, PLOT_DIR)
-    plot_brier(results_gbm, meanlineprops, medianprops, PLOT_DIR)
+    plot_brier(results_gbm, meanlineprops, medianprops, PLOT_DIR, "longitudinal")
+    plot_brier(results_baseline, meanlineprops, medianprops, PLOT_DIR, "baseline")
 
     plot_single_index_result_metric(results_gbm, 3, "AUROC", meanlineprops, medianprops, PLOT_DIR, "longitudinal")
     plot_single_index_result_metric(results_baseline, 3, "AUROC", meanlineprops, medianprops, PLOT_DIR, "baseline")
@@ -286,18 +278,13 @@ def cross_validation(feature_matrix, feature_matrix_constants, feature_importanc
     plot_average_metric_by_length(length_metrics_full_df, "auprc", "AUPRC score", ["gbm", "baseline"], lengths, colors, PLOT_DIR)
     plot_average_metric_by_length(length_metrics_full_df, "mse", "Brier score", ["gbm", "baseline"], lengths, colors, PLOT_DIR)
     plot_average_metrics_by_length(length_metrics_full_df, ["gbm", "baseline"], lengths, colors, PLOT_DIR)
-
+    plot_metrics_by_length(length_metrics_full_df, ["gbm", "baseline"], lengths, colors, PLOT_DIR)
 
     plt.close("all")
 
 
-def train_and_classify(feature_matrix_csv, feature_matrix_constants_csv, km_easix, classification_output, feature_output):
+def train_and_classify(feature_matrix_csv, feature_matrix_constants_csv, classification_output, feature_output):
     feature_matrix = pd.read_csv(feature_matrix_csv, dtype={"Unnamed: 0": str})
-    easix_data = pd.read_csv(km_easix, dtype={"cis_id": str})
-    easix_data["cis_id"] = easix_data["cis_id"].str.split(".").str[0]
-    easix_data.set_index("cis_id", inplace=True)
-    feature_matrix["pid"] = feature_matrix["Unnamed: 0"].str.split(".").str[0]
-    feature_matrix = feature_matrix.merge(easix_data[["easix"]], left_on="pid", right_index=True, how="left")
     feature_matrix.set_index("Unnamed: 0", inplace=True)
     feature_matrix_constants = pd.read_csv(feature_matrix_constants_csv, dtype={"Unnamed: 0": str})
     feature_matrix_constants.set_index("Unnamed: 0", inplace=True)
@@ -313,8 +300,13 @@ def train_and_classify(feature_matrix_csv, feature_matrix_constants_csv, km_easi
     end = time()
     print("Execution time cv", (end-start))
 
+    # if you want to just run one split, you can call the classify function directly
+    # train_idx, test_idx = train_test_split(feature_matrix_constants.index, test_size=0.2, random_state=123)
+    # print("Train samples:", len(train_idx), "Test samples:", len(test_idx))
+    # X_train, y_train, X_test, y_test = get_train_test(feature_matrix, train_idx, test_idx, MAX_QUARTER)
+    # metrics, y_prob, fp, tte_analysis = classify(
+    #     X_train, y_train, X_test, y_test, feature_matrix, model_params=MODEL_PARAMS, verbose=True, output_file=classification_output
+    # )
+
 os.makedirs(DATASET_DIR + "/plots", exist_ok=True)
-train_and_classify(DATASET_DIR + "/survival_feature_matrix.csv",
-        DATASET_DIR + "/survival_constant_only_feature_matrix.csv",
-        DATASET_DIR + "/kaplan_meier_input_easix.csv", DATASET_DIR + "/classification.csv",
-        DATASET_DIR + "/feature_importance.csv")
+train_and_classify(snakemake.input[0], snakemake.input[1], snakemake.output[0], snakemake.output[1])

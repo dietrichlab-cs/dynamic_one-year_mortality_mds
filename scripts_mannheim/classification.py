@@ -9,9 +9,8 @@ from scripts_mannheim.lib.helper import compute_tte_mse
 from scripts_mannheim.plotting.plotting_utils import precision_recall_plot, aur_roc_plot, \
     classification_plot, calibration_plot
 
-MAX_QUARTER = 32
-DATASET_DIR = "../data/publication_output/d_mannheim"
-PLOT_DIR = DATASET_DIR + "/plot"
+PLOT_DIR = snakemake.params[0]
+MAX_QUARTER = snakemake.params[1]
 
 
 def classify(pretrained_model, X_test, y_test, feature_matrix, verbose=False):
@@ -154,6 +153,4 @@ def train_and_classify(pretrained_model, pretrained_model_baseline, feature_matr
 
 
 os.makedirs(PLOT_DIR, exist_ok=True)
-train_and_classify("../data/publication_output/dataset/models/gbm_all_patients.joblib",
-        "../data/publication_output/dataset/models/gbm_all_patients_easix_baseline.joblib",
-        DATASET_DIR + "/survival_feature_matrix.csv", DATASET_DIR + "/metrics_full_model.txt")
+train_and_classify(snakemake.input[0], snakemake.input[1], snakemake.input[2], snakemake.output[0])

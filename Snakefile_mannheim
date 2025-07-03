@@ -93,9 +93,23 @@ rule build_complete_feature_matrix:
         "scripts_mannheim/build_complete_feature_matrix.py"
 
 
+# final step, used for model training and evaluation
+rule classify:
+    input:
+        "data/publication_output/dataset/models/gbm_all_patients.joblib",
+        "data/publication_output/dataset/models/gbm_all_patients_baseline.joblib",
+        DATASET_DIR + "/survival_feature_matrix.csv",
+    output:
+        DATASET_DIR + "/metrics_mannheim.txt"
+    params:
+        plot_dir=DATASET_DIR + "/plots",
+        max_quarter = MAX_QUARTER
+    threads: 8
+    script:
+        "scripts_mannheim/classification.py"
+
 rule all:
     input:
-        DATASET_DIR + "/survival_feature_matrix.csv",
-        # DATASET_DIR + "/feature_importance.csv"
+        DATASET_DIR + "/metrics_mannheim.txt"
 
 

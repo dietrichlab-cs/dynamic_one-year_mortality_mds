@@ -54,8 +54,9 @@ def extract_constant_features(constant_feature_file, patients, dataset_dir):
             else:
                 age = float(age)
             hb_leuko = get_hb_and_leuko(id, dataset_dir)
+            easix = float(row['easix']) if row['easix'] else None
 
-            constant_features[id] = [gender, age, blasts, cyto, hb_leuko[0], hb_leuko[1]]
+            constant_features[id] = [gender, age, blasts, cyto, hb_leuko[0], hb_leuko[1], easix]
             #constant_features[id] = [gender, age, ipss_r_age, blasts, cyto]
         return constant_features
 
@@ -89,7 +90,7 @@ def build_complete_feature_matrix(dynamic_files, constant_patient_data_file, out
 
     # prepare the output dataframe
     # const_feat_names = ['gender', 'age', 'ipssr_age', 'blasts', 'cyto', 'lifetime']
-    const_feat_names = ['gender', 'age', 'blasts', 'cyto', 'leuko_ed' , 'hb_ed', 'lifetime']
+    const_feat_names = ['gender', 'age', 'blasts', 'cyto', 'leuko_ed' , 'hb_ed', 'easix', 'lifetime']
     output_df = pd.DataFrame(columns=list(input_df.columns) + const_feat_names[:-1])
     output_df_constant_only = pd.DataFrame(columns=const_feat_names)
 

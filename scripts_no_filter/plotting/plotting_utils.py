@@ -173,8 +173,8 @@ def plot_ratio_over_time(df, lengths, meanlineprops, medianprops, colors, plot_d
     plt.savefig(plot_dir + "/stability_over_time_ratio.svg")
 
 
-def plot_brier(results_gbm, meanlineprops, medianprops, plot_dir):
-    print("PLOTTING BRIER")
+def plot_brier(results_gbm, meanlineprops, medianprops, plot_dir, filename):
+    print(f"PLOTTING BRIER for {filename}")
     plt.clf()
     labels = ["Complete", "Class 0", "Class 1"]
     fig, axs = plt.subplots(1, 3, sharey='row')
@@ -189,12 +189,12 @@ def plot_brier(results_gbm, meanlineprops, medianprops, plot_dir):
         ax.set_title(labels[i])
     plt.ylabel("Brier Score", fontsize=12)
     plt.tight_layout()
-    fig.savefig(plot_dir + "/brier_score.svg")
+    fig.savefig(plot_dir + f"/brier_score_{filename}.svg")
 
 
 def plot_single_index_result_metric(results_gbm, metric_index, metric_name, meanlineprops, medianprops, plot_dir,filename, random_baseline = 0.5):
     plt.clf()
-    print(f"PLOTTING {metric_name}")
+    print(f"PLOTTING {metric_name} for {filename}")
     # plt.title("AUROC for IPSS-R and GBM model", fontsize=14)
     bp1 = plt.boxplot([results_gbm[:, metric_index]], labels=["GBM"], notch=False, showmeans=True,
                       meanprops=meanlineprops, medianprops=medianprops)
@@ -292,7 +292,9 @@ def plot_average_metrics_by_length(df, models, lengths, colors, plot_dir):
                     color=colors[i % len(colors)],
                     label=model_name[model])
         ax.set_ylabel(metric_name, fontsize=12)
-        if metric_name == "Brier Score":
+        ax.set_ylim(0, 1 if metric_name != "Brier Score" else None)
+
+        if metric_name == "MSE":
             ax.set_ylim(0, 0.3)
             ax.set_yticks([0.0, 0.1, 0.2, 0.3])
             ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
@@ -308,6 +310,74 @@ def plot_average_metrics_by_length(df, models, lengths, colors, plot_dir):
     plt.savefig(f"{plot_dir}/stability_over_time_mean.svg")
     plt.close()
 
+
+def plot_metrics_by_length(df, models, lengths, colors, plot_dir):
+    # Helper to gather all values
+    def collect_metric_data(metric_prefix):
+        return {
+            model: [get_length_metric(df, f"{metric_prefix}_{model}", l) for l in lengths]
+            for model in models
+        }
+
+    # Collect all metrics
+    aurocs = collect_metric_data("auroc")
+    auprcs = collect_metric_data("auprc")
+    mses   = collect_metric_data("mse")
+
+    metric_info = [
+        ("AUROC", aurocs, (0, 1)),
+        ("AUPRC", auprcs, (0, 1)),
+        ("Brier Score", mses, (0, 0.5))
+    ]
+
+    model_name = {
+        "gbm": "longitudinal",
+        "baseline": "baseline"
+    }
+
+    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(8,6), sharex=True)
+
+    box_width = 0.35
+    offsets = np.linspace(-box_width, box_width, num=len(models))
+
+    for ax, (metric_name, metric_data, ylims) in zip(axes, metric_info):
+        for i, model in enumerate(models):
+            data = metric_data[model]
+            positions = np.array(lengths) + offsets[i]
+            bp = ax.boxplot(
+                data,
+                positions=positions,
+                widths=box_width / 1.5,
+                patch_artist=True,
+                boxprops=dict(facecolor=colors[i % len(colors)], color=colors[i % len(colors)]),
+                capprops=dict(color=colors[i % len(colors)]),
+                whiskerprops=dict(color=colors[i % len(colors)]),
+                flierprops=dict(markerfacecolor=colors[i % len(colors)], marker='o', alpha=0.5),
+                medianprops=dict(color='black'),
+                showfliers=True
+            )
+
+        ax.set_ylabel(metric_name, fontsize=12)
+        ax.set_ylim(*ylims)
+        ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
+
+    # X-axis labels and legend
+    axes[-1].set_xlabel("Sample length in quarterly intervals", fontsize=12)
+    xticks = lengths
+    axes[-1].set_xticks(xticks)
+    axes[-1].set_xticklabels(xticks)
+
+    # Custom legend
+    handles = [
+        plt.Line2D([], [], color=colors[i % len(colors)], marker='s', linestyle='None',
+                   markersize=10, label=model_name[model])
+        for i, model in enumerate(models)
+    ]
+    axes[-1].legend(handles=handles, loc="upper right")
+
+    plt.tight_layout()
+    plt.savefig(f"{plot_dir}/stability_over_time_boxplots_matplotlib.svg")
+    plt.close()
 
 def plot_feature_importance(feature_importance, features_to_plot, meanlineprops, medianprops, plot_dir):
     plt.clf()
