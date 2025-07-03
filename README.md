@@ -1,3 +1,6 @@
+[![DOI](https://zenodo.org/badge/1004354835.svg)](https://doi.org/10.5281/zenodo.15799707)
+
+
 ## Overview
 
 This repository cotains all code for the related publication titled "Dynamic Mortality Risk Prediction in Myelodysplastic Syndromes Using Longitudinal Clinical Data" by Bobak et al. 
