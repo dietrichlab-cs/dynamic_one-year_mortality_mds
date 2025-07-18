@@ -55,6 +55,7 @@ def classify(pretrained_model, X_test, y_test, feature_matrix, verbose=False):
 
         prob_df = pd.DataFrame(y_prob, columns=["c_0", "c_1"], index=test_data_df.index)
         test_data_df = pd.concat([test_data_df, prob_df], axis=1)
+        prob_df.to_csv("../data/publication_output/d_mannheim/probs_longitudinal.csv")
 
         classification_plot(test_data_df, y_test, "_gbm", PLOT_DIR, MAX_QUARTER)
         calibration_plot(y_test, y_prob, PLOT_DIR, "calibration")
@@ -100,6 +101,7 @@ def classify_baseline(pretrained_model, X_test, y_test, feature_matrix, verbose=
 
         prob_df = pd.DataFrame(y_prob, columns=["c_0", "c_1"], index=test_data_df.index)
         test_data_df = pd.concat([test_data_df, prob_df], axis=1)
+        prob_df.to_csv("../data/publication_output/d_mannheim/probs_baseline.csv")
 
         classification_plot(test_data_df, y_test, "_baseline_gbm", PLOT_DIR, MAX_QUARTER)
         calibration_plot(y_test, y_prob, PLOT_DIR, "calibration_baseline")
