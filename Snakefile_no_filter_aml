@@ -16,7 +16,7 @@ def get_label_files(wildcards):
 MINIMUM_LIFETIME = 0.5
 MAX_QUARTER = 32
 DISCRIMINATION_POINT = 365
-DATASET_DIR = "data/publication_output/dataset"
+DATASET_DIR = "data/publication_output/dataset_aml"
 
 # this step filters patients based on missing meta information and patients with stem-cell-transplantation
 rule create_patient_set:
@@ -29,7 +29,7 @@ rule create_patient_set:
     params:
         minimum_lifetime=MINIMUM_LIFETIME
     script:
-        "scripts_no_filter/filter_patients.py"
+        "scripts_no_filter_aml/filter_patients.py"
 
 # this step extracts the chosen parameters parameters from the MEDICO outputs
 checkpoint build_patient_time_series:
@@ -44,7 +44,7 @@ checkpoint build_patient_time_series:
     output:
         directory(DATASET_DIR + "/raw_data/")
     script:
-        "scripts_no_filter/extract_ts_patient_data.py"
+        "scripts_no_filter_aml/extract_ts_patient_data.py"
 
 
 # some meta information on the patient is extracted in this step. Like the available data-span and if the event of interest occurred
@@ -57,7 +57,7 @@ rule data_analysis:
     output:
         DATASET_DIR + "/labels/{patient}_labels.csv"
     script:
-        "scripts_no_filter/data_analysis.py"
+        "scripts_no_filter_aml/data_analysis.py"
 
 
 
@@ -74,7 +74,7 @@ rule build_time_series_feature_matrix:
         max_quarter=MAX_QUARTER,
     threads: 1
     script:
-        "scripts_no_filter/build_time_series_feature_matrix.py"
+        "scripts_no_filter_aml/build_time_series_feature_matrix.py"
 
 
 
@@ -91,7 +91,7 @@ rule build_complete_feature_matrix:
         dataset_dir = DATASET_DIR
     threads: 4
     script:
-        "scripts_no_filter/build_complete_feature_matrix.py"
+        "scripts_no_filter_aml/build_complete_feature_matrix.py"
 
 
 
@@ -110,7 +110,7 @@ rule classify:
         baseline_model_params = {"n_estimators": 500, "learning_rate": 0.01, "max_depth": 3, "features_per_split": 80, "random_state": 123, "sample_weight": 2.3}
     threads: 8
     script:
-        "scripts_no_filter/cross_validation.py"
+        "scripts_no_filter_aml/cross_validation.py"
 
 
 rule all:
