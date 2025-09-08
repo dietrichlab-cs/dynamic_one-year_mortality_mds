@@ -6,13 +6,17 @@
 This repository cotains all code for the related publication titled "Dynamic Mortality Risk Prediction in Myelodysplastic Syndromes Using Longitudinal Clinical Data" by Bobak et al. 
 
 The `publication` branch contains all plots and code related to the generation of results for the paper. Code in here is provided to make results reproducible and to allow for further analysis of the data. 
-You should be able to get the exact same results as the publication given the same input data or may try to adapt the pipeline to your own data. 
+You should be able to get the same results as the publication given the same input data or may try to adapt the pipeline to your own data. For complete reproduction it may be more sensible to work with the `publication_raw` branch as there are some dataset specific adjustments. 
 The second part is not the main focus of this repository, but we provide the code to allow for it. Note that due to differing data formats you may need to adapt the code to your own data, see section "Run and train on your own data" below for more information.
+If you are interested in the AML pipelines please refer to the `scripts_no_filter_aml` folder. This is an example of how to adjust the pipeline to different formats.
 
 The `webapp` branch contains the sample application avavailable here: https://dietrichlab.de/PythonApps/dynamic_mds_paper/
 NOTE: This web-application is purely for research purposes.
 
 The `publication_raw` branch contains the raw code used during paper creation. The `publication` branch is a cleaned version of this code more easily applicable for generalization to new datasets. The code in this branch is highly dependent on the dataset and more organically grown during data and result generation.
+The following adjustments are made which are not reflected in the example pipelines on this branch: 
+* For the `data_analysis.py` and the one-year mortality label, we do exclude patients with laboratory data more than 5 days after their supposed death. This may indicate incorrect labelling of the patient in source systems. 
+* Filtering of patient, especially for the one-year AML progression label. You may need to adjust the `filter_patients.py` file to your needs and your dataset.
 
 ### Pipeline
 

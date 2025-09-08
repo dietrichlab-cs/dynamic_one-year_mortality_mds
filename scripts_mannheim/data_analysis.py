@@ -56,12 +56,6 @@ def analyse_data(patient, dataset_name, patient_meta_file, label_output):
 
                     # it can happen, that there are observations for patients after the event
                     difference_obs_end_death = (event - last_observation).days
-                    # Cut them off if the difference is more than 5 days
-                    if difference_obs_end_death < -5:
-                        print(row['cis_id'], "Last observation:", last_observation, "Event:", event, "Difference",
-                              difference_obs_end_death)
-                        writer.writerow(["Excluded"])
-                        return
 
                     lifetime = event - first_diagnosis
                     # write all stats to a csv file
