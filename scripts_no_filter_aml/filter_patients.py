@@ -2,6 +2,7 @@ import csv
 from collections import defaultdict
 from datetime import datetime
 
+import pandas as pd
 
 MINIMUM_LIFETIME = snakemake.params[0]
 
@@ -16,8 +17,8 @@ def filter_patients(input_file, error_file=None):
             error_ids.append(row[0])
 
     with open(input_file, encoding='UTF-8-sig') as csvfile:
-        reader = csv.DictReader(csvfile, delimiter=",")
-        fieldnames = ["id", "cis_id", "age", "gender", "blasts", "cyto", "birthdate", "diagnosis_date", "censoring_date", "censoring_type", "ipssr"]
+        reader = csv.DictReader(csvfile, delimiter=";")
+        fieldnames = ["id", "cis_id", "age", "gender", "blasts", "cyto", "birthdate", "diagnosis_date", "censoring_date", "censoring_type"]
         filter_reason = defaultdict(int)
         for row in reader:
             # only include patients with first diagnosis date and meddat id
@@ -36,21 +37,40 @@ def filter_patients(input_file, error_file=None):
                 filter_reason["KMT_date"] += 1
                 continue
             # skip patients which are lost to follow-up
-            if row['Definitives Schicksal Code'] in ['', '1']:
+            censoring_date = None
+            if row['AML-Übergang Code'] == '1':
+                censoring_type = 2
+            elif row['Definitives Schicksal Code'] == '0':
+                censoring_type = 0
+            elif row['Definitives Schicksal Code'] == '2':
+                censoring_type = 1
+            else:
                 filter_reason["Fate"] += 1
                 continue
             # Exclude patients with no definitive date
-            if row['Datum definitives Schicksal'] == '':
+            if censoring_type == 2 and row['Datum AML-Transformation'] == '':
+                filter_reason["Fate_date"] += 1
+                continue
+            elif censoring_type in [0,1] and row['Datum definitives Schicksal'] == '':
                 filter_reason["Fate_date"] += 1
                 continue
             # check if a patient lived more than MINIMUM_LIFETIME years -> if so we can add the living patient with label
             # "lived longer than 5 years"
-            if row['Definitives Schicksal Code'] == '0':
+            if censoring_type == 0:
                 first_diagnosis = datetime.strptime(row['Erstdiagnose Datum'], '%d.%m.%Y')
-                last_fate = datetime.strptime(row['Datum definitives Schicksal'], '%d.%m.%Y')
-                if (last_fate-first_diagnosis).days / 365 < MINIMUM_LIFETIME:
+                censoring_date = datetime.strptime(row['Datum definitives Schicksal'], '%d.%m.%Y') - pd.Timedelta(365, "days")
+                if (censoring_date-first_diagnosis).days / 365 < MINIMUM_LIFETIME:
                     filter_reason["short"] += 1
                     continue
+            elif censoring_type == 1:
+                first_diagnosis = datetime.strptime(row['Erstdiagnose Datum'], '%d.%m.%Y')
+                censoring_date = datetime.strptime(row['Datum definitives Schicksal'], '%d.%m.%Y')
+                if (censoring_date - first_diagnosis).days / 365 < MINIMUM_LIFETIME:
+                    filter_reason["short"] += 1
+                    continue
+            elif censoring_type == 2:
+                censoring_date = datetime.strptime(row['Datum AML-Transformation'], '%d.%m.%Y')
+
             # exclude patients with missing constant features
             if row['Blasten im KM % ED'] == '':
                 #filter_reason["blast/karyo"] += 1
@@ -63,9 +83,9 @@ def filter_patients(input_file, error_file=None):
             else:
                 karyotyp = int(row['Karyotyp nach IPSS-R Code ED'])
             # exclude patients with missing ipssr
-            if row['IPSS-R Code ED'] == '':
-                filter_reason["ipssr_missing"] += 1
-                continue
+            #if row['IPSS-R Code ED'] == '':
+            #    filter_reason["ipssr_missing"] += 1
+            #    continue
 
             age = row['Alter bei ED Jahre']
             if age == '':
@@ -83,9 +103,9 @@ def filter_patients(input_file, error_file=None):
                 "cyto": karyotyp,
                 "birthdate": row['Geburtsdatum'],
                 "diagnosis_date": row['Erstdiagnose Datum'],
-                "censoring_date": row['Datum definitives Schicksal'],
-                "censoring_type": int(row['Definitives Schicksal Code']),
-                "ipssr": int(row['IPSS-R Code ED'])
+                "censoring_date": censoring_date.strftime("%d.%m.%Y"),
+                "censoring_type": censoring_type,
+                #"ipssr": int(row['IPSS-R Code ED'])
             }
 
 

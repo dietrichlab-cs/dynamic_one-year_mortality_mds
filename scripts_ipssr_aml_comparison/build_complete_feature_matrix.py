@@ -101,7 +101,7 @@ def build_complete_feature_matrix(dynamic_files, constant_patient_data_file, out
         eda_file = open(dataset_dir + "/labels/" + patient + "_labels.csv")
         eda_reader = csv.DictReader(eda_file)
         for row in eda_reader:
-            km_df.loc[patient] = [constant_features[patient][2], row["lifetime"], 0 if row["alive"] == "1" else 1]
+            km_df.loc[patient] = [constant_features[patient][2], row["lifetime"], 1 if row["alive"] == "-1" else 0]
             new_series = pd.Series(constant_features[patient] + [row['lifetime']], index=const_feat_names)
             output_df_constant_only.loc[patient] = new_series
             for patient_idx in patient_samples[patient]:

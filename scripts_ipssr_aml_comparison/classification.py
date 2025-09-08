@@ -23,7 +23,7 @@ from scripts_ipssr_comparison.plotting.plotting_utils import plot_metric_by_leng
     precision_recall_plot, aur_roc_plot, plot_loss, classification_plot, calibration_plot, plot_kaplan_meier, \
     plot_average_metrics_by_length, plot_metrics_by_length
 
-DATASET_DIR = "../data/publication_output/dataset_ipssr"
+DATASET_DIR = "../data/publication_output/dataset_ipssr_aml"
 PLOT_DIR = DATASET_DIR + "/plots"
 MAX_QUARTER = 32
 MODEL_PARAMS = {"n_estimators": 1500, "learning_rate": 0.01, "max_depth": 3, "features_per_split": 80, "random_state": 123, "sample_weight": 2.3}
@@ -48,9 +48,8 @@ def classify(X_train, y_train, X_test, y_test, feature_matrix, model_params = MO
     X_test = X_test.drop(columns=['ipssr_age'], errors="ignore")
 
     # drop the "last values" feature which was only used for testing the feature extraction
-    #X_train.drop(columns=[c for c in X_train.columns if c not in ["quarters", "window_length", "gender", "age", "blasts", "cyto"]], inplace=True)
-    #X_test.drop(columns=[c for c in X_test.columns if  c not in ["quarters", "window_length", "gender", "age", "blasts", "cyto"]],
-    #             inplace=True)
+    X_train.drop(columns=[c for c in X_train.columns if "_large_standard_deviation_{\'r\'" in c], inplace=True)
+    X_test.drop(columns=[c for c in X_test.columns if "_large_standard_deviation_{\'r\'" in c],  inplace=True)
 
     # Feature selection
     selector = VarianceThreshold()
@@ -284,6 +283,7 @@ def cross_validation(feature_matrix, feature_matrix_constants, kaplan_meier_inpu
     plot_single_index_result_metric(results_ipssr, 4, "AUPRC", meanlineprops, medianprops, PLOT_DIR, "ipssr", avg_prevalence)
     plot_single_index_result_metric(results_baseline, 4, "AUPRC", meanlineprops, medianprops, PLOT_DIR, "baseline", avg_prevalence)
 
+    print("AUROCS:", results_ipssr[:,3])
 
     averaged_importance = {}
     sorted_importance = []
@@ -334,7 +334,9 @@ def calculate_kaplan_meier_error(X_test_constant, X_test, y_test, kmf_estimators
         ipssr_group = X_test_constant.loc[sample.split(".")[0], "ipssr_age"]
         prediction_point = X_test.loc[sample, "window_length"] + 365
         known_alive = X_test.loc[sample, "window_length"]
-        survival_prob = kmf_estimators[ipssr_group].predict(prediction_point) / kmf_estimators[ipssr_group].predict(known_alive)
+        surv_prob_prediction_point = kmf_estimators[ipssr_group].predict(prediction_point)
+        surv_prob_known_alive_point = kmf_estimators[ipssr_group].predict(known_alive)
+        survival_prob = 0 if surv_prob_prediction_point == 0 else surv_prob_prediction_point / surv_prob_known_alive_point
         y_prob.append(1- survival_prob)
         if true_label == 0: y_prob_c0.append(1 - survival_prob)
         else: y_prob_c1.append(1 - survival_prob)

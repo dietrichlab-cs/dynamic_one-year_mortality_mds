@@ -1,13 +1,17 @@
-from collections import defaultdict
-
-import numpy as np
+import os
 import pandas as pd
-import pylab as pl
 from lifelines import KaplanMeierFitter
-import kaplanmeier as km
 from matplotlib import pyplot as plt
 
-PLOT_DIR = "../../data/publication_output/dataset/plots"
+PLOT_DIR = "../../data/publication_output/dataset_ipssr_aml/km_plots"
+
+GROUP_LABELS = {
+    0: "very-low",
+    1: "low",
+    2: "intermediate",
+    3: "high",
+    4: "very-high",
+}
 
 # train Kaplan Meier estimator for each IPSS-R category based on the given patient set and plot all Kaplan-Meier curves using lifelines
 def kaplan_meier(kaplan_meier_input):
@@ -17,22 +21,25 @@ def kaplan_meier(kaplan_meier_input):
         group_idx = (km_train["ipssr_group"] == i)
         kmf = KaplanMeierFitter()
         group_fit = kmf.fit(durations=km_train.loc[group_idx, "lifetime"],
-                            event_observed=km_train.loc[group_idx, "event_occurred"], label=i)
+                            event_observed=km_train.loc[group_idx, "event_occurred"], label=GROUP_LABELS[int(i)])
         kmf_estimators[i] = kmf
 
     time_event, censoring, y = km_train["lifetime"], km_train["event_occurred"], km_train["ipssr_group"]
-    results = km.fit(time_event, censoring, y)
-    km.plot(results, title="", fontsize=14)
-    fig = plt.gcf()
-    ax_list = fig.axes
-    axis = ax_list[0]
-    ax_list[1].set_visible(False)
-    axis.set_xlim(0, 4500)
-    axis.set_xlabel("days", fontsize=14)
-    axis.set_ylabel("probability", fontsize=14)
-    plt.tight_layout()
-    plt.savefig(PLOT_DIR + "/kaplan_meier.pdf")
 
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    for i, kmf in sorted(kmf_estimators.items(), key=lambda t: t[0]):
+        kmf.plot_survival_function(ax=ax, ci_show=False)
+
+    ax.set_xlim(0, 4500)
+    ax.set_xlabel("days", fontsize=14)
+    ax.set_ylabel("probability", fontsize=14)
+    ax.legend(title="IPSS-R group", fontsize=10, title_fontsize=10)
+
+    fig.tight_layout()
+    os.makedirs(PLOT_DIR, exist_ok=True)
+    fig.savefig(f"{PLOT_DIR}/kaplan_meier.svg")
+    plt.close(fig)
+    """
     conditional_prob = defaultdict(list)
     plt.clf()
     colors = ["tab:red", "tab:blue", "tab:green", "tab:purple", "tab:orange"]
@@ -48,15 +55,15 @@ def kaplan_meier(kaplan_meier_input):
     plt.tight_layout()
     plt.savefig(PLOT_DIR + "/kaplan_meier_cs.pdf")
     plt.show()
-
+    """
     return kmf_estimators
 
 if __name__ == "__main__":
-    kaplan_meier_input = pd.read_csv("../../data/publication_output/dataset/kaplan_meier_input.csv", index_col="id")
+    kaplan_meier_input = pd.read_csv("../../data/publication_output/dataset_ipssr_aml/kaplan_meier_input.csv", index_col="id")
     kaplan_meier(kaplan_meier_input)
-
+    """
     # plot snapshot counts depending on IPSS-R category and snapshot length
-    df = pd.read_csv("../../data/publication_output/dataset/survival_feature_matrix.csv", index_col="Unnamed: 0")
+    df = pd.read_csv("../../data/publication_output/dataset_ipssr_aml/survival_feature_matrix.csv", index_col="Unnamed: 0")
     plt.clf()
     colors = ["tab:red", "tab:blue", "tab:green", "tab:purple", "tab:orange"]
     cat_names = ["very low", "low", "intermediate", "high", "very high"]
@@ -113,3 +120,4 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig(PLOT_DIR + "/kaplan_meier_length_pos.pdf")
     plt.show()
+    """

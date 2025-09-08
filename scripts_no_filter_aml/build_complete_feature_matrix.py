@@ -43,7 +43,7 @@ def extract_constant_features(constant_feature_file, patients, dataset_dir):
             id = row['cis_id']
             if id not in patients: continue
             gender = int(row['gender'])
-            ipss_r_age = row['ipssr']
+            #ipss_r_age = row['ipssr']
             blasts = int(float(row['blasts'])) if row['blasts'] else None
             cyto = int(row['cyto']) if row['cyto'] else None
             age = row['age']
@@ -55,8 +55,8 @@ def extract_constant_features(constant_feature_file, patients, dataset_dir):
                 age = float(age)
             hb_leuko = get_hb_and_leuko(id, dataset_dir)
 
-            constant_features[id] = [gender, age, ipss_r_age, blasts, cyto, hb_leuko[0], hb_leuko[1]]
-
+            constant_features[id] = [gender, age, blasts, cyto, hb_leuko[0], hb_leuko[1]]
+            #constant_features[id] = [gender, age, ipss_r_age, blasts, cyto]
         return constant_features
 
 
@@ -71,7 +71,7 @@ def join_ts_dataframes(dynamic_files):
     return joined_df
 
 
-def build_complete_feature_matrix(dynamic_files, constant_patient_data_file, output_file, output_constant_only, dataset_dir, kaplan_meier_file):
+def build_complete_feature_matrix(dynamic_files, constant_patient_data_file, output_file, output_constant_only, dataset_dir):
     input_df = join_ts_dataframes(dynamic_files)
     print(input_df)
     patients, patient_samples = set(), defaultdict(list)
@@ -88,30 +88,32 @@ def build_complete_feature_matrix(dynamic_files, constant_patient_data_file, out
     constant_features = extract_constant_features(constant_patient_data_file, patients, dataset_dir)
 
     # prepare the output dataframe
-    const_feat_names = ['gender', 'age', 'ipssr_age', 'blasts', 'cyto', 'leuko_ed' , 'hb_ed', 'lifetime']
+    # const_feat_names = ['gender', 'age', 'ipssr_age', 'blasts', 'cyto', 'lifetime']
+    const_feat_names = ['gender', 'age', 'blasts', 'cyto', 'leuko_ed' , 'hb_ed', 'lifetime']
     output_df = pd.DataFrame(columns=list(input_df.columns) + const_feat_names[:-1])
     output_df_constant_only = pd.DataFrame(columns=const_feat_names)
 
     # prepare a dataframe with ipssr, lifetime and censoring for kaplan meier curve calculation
-    km_df = pd.DataFrame(columns=["id","ipssr_group", "lifetime", "event_occurred"])
-    km_df = km_df.set_index("id")
+    #km_df = pd.DataFrame(columns=["id","ipssr_group", "lifetime", "event_occurred"])
+    #km_df = km_df.set_index("id")
 
     # add constant features to extracted time series features and store them in the output dataframe
     for patient in patients:
         eda_file = open(dataset_dir + "/labels/" + patient + "_labels.csv")
         eda_reader = csv.DictReader(eda_file)
         for row in eda_reader:
-            km_df.loc[patient] = [constant_features[patient][2], row["lifetime"], 0 if row["alive"] == "1" else 1]
+            #km_df.loc[patient] = [constant_features[patient][2], row["lifetime"], 0 if row["alive"] == "1" else 1]
             new_series = pd.Series(constant_features[patient] + [row['lifetime']], index=const_feat_names)
             output_df_constant_only.loc[patient] = new_series
             for patient_idx in patient_samples[patient]:
+                # we cut of lifetime and easix for the sample feature matrix
                 output_df.loc[patient_idx] = pd.concat([input_df.loc[patient_idx], new_series[:-1]])
             break
 
     # store the final two matrices (constant features only and all features) as csv files
     output_df.to_csv(output_file)
     output_df_constant_only.to_csv(output_constant_only)
-    km_df.to_csv(kaplan_meier_file)
+    #km_df.to_csv(kaplan_meier_file)
 
 
-build_complete_feature_matrix(snakemake.input[3:], snakemake.input[0], snakemake.output[0], snakemake.output[1], snakemake.params[1], snakemake.output[2])
+build_complete_feature_matrix(snakemake.input[1:], snakemake.input[0], snakemake.output[0], snakemake.output[1], snakemake.params[1])

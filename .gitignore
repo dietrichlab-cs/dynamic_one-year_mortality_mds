@@ -1,0 +1,10 @@
+*.xlsx
+*.csv
+
+data/
+.snakemake/
+
+**/.idea
+**/venv/
+
+**/__pycache__/

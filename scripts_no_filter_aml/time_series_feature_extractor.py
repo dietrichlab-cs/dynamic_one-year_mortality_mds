@@ -130,18 +130,22 @@ class Feature_Extractor:
             # only if the patient is still alive and the time to event is less than the time to label, we have to exclude the quarter
             # the reason being that at this point in time we can not draw any conclusions for the patients status at time of label
             # e.g. patient is alive i.e. event = right censored point,
-            # we look at 365 days mortality and the last quarter's time to event is 300 days. Then the censor point is reached before the label point
+            # we look at 365 days AML progression and the last quarter's time to event is 300 days. Then the censor point is reached before the label point
             # and we have no information if the event was observed for the patient in the last 65 days to label point.
             if self.alive == 1:
                 if time_to_event <= self.discrimination_point:
                     continue
                 else:
                     label = 0
+            # here the patient is dead without AML progression
+            elif self.alive == 0:
+                label= 0
+            # else we have a patient with AML progression so we need to check if the sample is within the one-year range
             else:
                 if time_to_event <= self.discrimination_point:
                     label = 1
                 else:
-                    label= 0
+                    label = 0
 
             # the stride for the feature collection is just the complete timespan between first_diagnosis and death.
             # This ensures we only get the first window since it is the only one we are interested in

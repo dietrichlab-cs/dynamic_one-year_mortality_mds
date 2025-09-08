@@ -1,6 +1,7 @@
 import csv
 from collections import defaultdict
 from datetime import datetime
+import pandas as pd
 
 
 MINIMUM_LIFETIME = snakemake.params[0]
@@ -27,7 +28,7 @@ def filter_patients(input_file, error_file=None):
             # exclude error patients, these are manually selected patients based on errors in the mds register
             if row['Meddat ID'] in error_ids:
                 continue
-            # skip patients that got a stem cell transplantation
+            # skip patients that got a stem cell transplantation prior to or at the same time as the aml transformation
             if not (row['Einteilung KMT/SCT (alt) Code 1'] in ['0', ''] and row['Einteilung KMT/SCT (alt) Code 2'] in ['0', '']):
                 filter_reason["KMT"] += 1
                 continue
@@ -36,21 +37,40 @@ def filter_patients(input_file, error_file=None):
                 filter_reason["KMT_date"] += 1
                 continue
             # skip patients which are lost to follow-up
-            if row['Definitives Schicksal Code'] in ['', '1']:
+            censoring_date = None
+            if row['AML-Übergang Code'] == '1':
+                censoring_type = 2
+            elif row['Definitives Schicksal Code'] == '0':
+                censoring_type = 0
+            elif row['Definitives Schicksal Code'] == '2':
+                censoring_type = 1
+            else:
                 filter_reason["Fate"] += 1
                 continue
             # Exclude patients with no definitive date
-            if row['Datum definitives Schicksal'] == '':
+            if censoring_type == 2 and row['Datum AML-Transformation'] == '':
+                filter_reason["Fate_date"] += 1
+                continue
+            elif censoring_type in [0,1] and row['Datum definitives Schicksal'] == '':
                 filter_reason["Fate_date"] += 1
                 continue
             # check if a patient lived more than MINIMUM_LIFETIME years -> if so we can add the living patient with label
             # "lived longer than 5 years"
-            if row['Definitives Schicksal Code'] == '0':
+            if censoring_type == 0:
                 first_diagnosis = datetime.strptime(row['Erstdiagnose Datum'], '%d.%m.%Y')
-                last_fate = datetime.strptime(row['Datum definitives Schicksal'], '%d.%m.%Y')
-                if (last_fate-first_diagnosis).days / 365 < MINIMUM_LIFETIME:
+                censoring_date = datetime.strptime(row['Datum definitives Schicksal'], '%d.%m.%Y') - pd.Timedelta(365, "days")
+                if (censoring_date-first_diagnosis).days / 365 < MINIMUM_LIFETIME:
                     filter_reason["short"] += 1
                     continue
+            elif censoring_type == 1:
+                first_diagnosis = datetime.strptime(row['Erstdiagnose Datum'], '%d.%m.%Y')
+                censoring_date = datetime.strptime(row['Datum definitives Schicksal'], '%d.%m.%Y')
+                if (censoring_date - first_diagnosis).days / 365 < MINIMUM_LIFETIME:
+                    filter_reason["short"] += 1
+                    continue
+            elif censoring_type == 2:
+                censoring_date = datetime.strptime(row['Datum AML-Transformation'], '%d.%m.%Y')
+
             # exclude patients with missing constant features
             if row['Blasten im KM % ED'] == '':
                 #filter_reason["blast/karyo"] += 1
@@ -83,8 +103,8 @@ def filter_patients(input_file, error_file=None):
                 "cyto": karyotyp,
                 "birthdate": row['Geburtsdatum'],
                 "diagnosis_date": row['Erstdiagnose Datum'],
-                "censoring_date": row['Datum definitives Schicksal'],
-                "censoring_type": int(row['Definitives Schicksal Code']),
+                "censoring_date": censoring_date.strftime("%d.%m.%Y"),
+                "censoring_type": censoring_type,
                 "ipssr": int(row['IPSS-R Code ED'])
             }
 

@@ -17,7 +17,7 @@ configfile: "config.yml"
 MINIMUM_LIFETIME = 0.5
 MAX_QUARTER = 32
 DISCRIMINATION_POINT = 365
-DATASET_DIR = "data/publication_output/dataset_ipssr"
+DATASET_DIR = "data/publication_output/dataset_ipssr_aml"
 
 # this step filters patients based on missing meta information and patients with stem-cell-transplantation
 rule create_patient_set:
@@ -30,7 +30,7 @@ rule create_patient_set:
     params:
         minimum_lifetime=MINIMUM_LIFETIME
     script:
-        "scripts_ipssr_comparison/filter_patients.py"
+        "scripts_ipssr_aml_comparison/filter_patients.py"
 
 # this step extracts the chosen parameters parameters from the MEDICO outputs
 checkpoint build_patient_time_series:
@@ -45,7 +45,7 @@ checkpoint build_patient_time_series:
     output:
         directory(DATASET_DIR + "/raw_data/")
     script:
-        "scripts_ipssr_comparison/extract_ts_patient_data.py"
+        "scripts_ipssr_aml_comparison/extract_ts_patient_data.py"
 
 
 # some meta information on the patient is extracted in this step. Like the available data-span and if the event of interest occurred
@@ -58,7 +58,7 @@ rule data_analysis:
     output:
         DATASET_DIR + "/labels/{patient}_labels.csv"
     script:
-        "scripts_ipssr_comparison/data_analysis.py"
+        "scripts_ipssr_aml_comparison/data_analysis.py"
 
 
 
@@ -75,7 +75,7 @@ rule build_time_series_feature_matrix:
         max_quarter=MAX_QUARTER,
     threads: 1
     script:
-        "scripts_ipssr_comparison/build_time_series_feature_matrix.py"
+        "scripts_ipssr_aml_comparison/build_time_series_feature_matrix.py"
 
 
 
@@ -93,7 +93,7 @@ rule build_complete_feature_matrix:
         dataset_dir = DATASET_DIR
     threads: 4
     script:
-        "scripts_ipssr_comparison/build_complete_feature_matrix.py"
+        "scripts_ipssr_aml_comparison/build_complete_feature_matrix.py"
 
 
 rule all:

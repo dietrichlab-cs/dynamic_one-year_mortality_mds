@@ -137,11 +137,15 @@ class Feature_Extractor:
                     continue
                 else:
                     label = 0
+            # here the patient is dead without AML progression
+            elif self.alive == 0:
+                label = 0
+            # else we have a patient with AML progression so we need to check if the sample is within the one-year range
             else:
                 if time_to_event <= self.discrimination_point:
                     label = 1
                 else:
-                    label= 0
+                    label = 0
 
             # the stride for the feature collection is just the complete timespan between first_diagnosis and death.
             # This ensures we only get the first window since it is the only one we are interested in
